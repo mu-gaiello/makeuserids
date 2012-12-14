@@ -1,0 +1,68 @@
+#!/bin/bash
+#Brian Zerfass
+#Bruce Lukens
+#Giuseppe Aiello
+
+
+# Script to create unique userids from a list of user names
+# CS 370, Fall 2012
+
+echo "Removing temporary files.."
+rm firstn
+rm lastn
+rm ids.1st
+rm ids.2nd
+rm ids.final
+
+inputfile=$1
+
+echo "Extracting 1st letter of first name.."
+cut -d, -f2 $inputfile | cut  -c2 | tr A-Z a-z > firstn
+
+echo "Removing special characters and extracting up to 7 letters of last name.."
+cut -d, -f1 $inputfile | tr -d [:punct:] | cut -c1-7 | tr A-Z a-z > lastn
+paste -d" " firstn lastn | tr -d " " > ids.1st # 
+
+echo "Creating list of duplicated ids.."
+sort ids.1st | uniq -d > duplids.txt # cuts out any unique ids and puts the duplicates into duplids.txt
+
+# progress bar function
+# using awk for the id appending, this was the only way to do a progress bar
+# If you comment out the progress bar, this code is almost instant
+function simple_progress_ind {
+i=0
+  while [ $i -le 50 ]
+  do
+    echo -ne "."
+    sleep 0.05
+i=$(( $i + 1 ))
+  done
+}
+
+function stop_progress_ind {
+  exec 2>/dev/null
+  kill $1
+  echo -en "\n"
+}
+
+pid=$!
+
+
+
+# This block of code puts a counter at the end of
+# duplicate ids and puts those new ids into ids.2nd
+echo "Finding and appending numbers to duplicates.."
+awk 'FILENAME=="duplids.txt" {arr[$0]++}
+     FILENAME=="ids.1st"        { if (arr[$0]) printf "%s%d\n", $0, ++cnt[$0];
+                                  else print
+                                }' duplids.txt ids.1st > ids.2nd
+simple_progress_ind
+stop_progress_ind
+
+echo "Double checking for any duplicates.."
+sort ids.2nd | uniq -d > duplids.txt #checks for duplicates and puts any into duplids.txt
+echo "No duplicates found"
+
+echo "Pasting ids to original file.."
+#Paste ids.2nd to $inputfile > ids.final
+paste -d":" $inputfile ids.2nd > ids.final
